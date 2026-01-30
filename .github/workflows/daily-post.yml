@@ -42,6 +42,6 @@ jobs:
             echo "No changes to commit."
             exit 0
           fi
-          git add _posts
+          git add _posts assets/images
           git commit -m "Add daily post"
           git push

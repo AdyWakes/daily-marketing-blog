@@ -7,6 +7,7 @@ and host it for free on GitHub Pages.
 - GitHub Actions runs on a daily schedule (UTC).
 - The workflow calls the OpenAI API to generate a post.
 - A new Markdown file is created in `_posts/`.
+- A hero image is generated and saved to `assets/images/`.
 - GitHub Pages builds the site with Jekyll and publishes it.
 
 ## Required GitHub Secrets
@@ -33,4 +34,3 @@ If you want a free URL, use the default:
 If you want to preview locally:
 1. Install Ruby + Jekyll.
 2. Run: `bundle exec jekyll serve`
-

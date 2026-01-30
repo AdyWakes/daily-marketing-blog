@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import re
@@ -27,6 +28,16 @@ def extract_text(payload: dict) -> str:
                 if text:
                     texts.append(text)
     return "\n".join(texts).strip()
+
+
+def extract_image_base64(payload: dict) -> str:
+    for item in payload.get("output", []):
+        if item.get("type") == "image_generation_call":
+            if item.get("result"):
+                return item["result"]
+            if item.get("b64_json"):
+                return item["b64_json"]
+    return ""
 
 
 def parse_json_from_text(text: str) -> dict:
@@ -102,10 +113,58 @@ def main() -> None:
     filename = f"{date_prefix}-{slug}.md"
     filepath = os.path.join(posts_dir, filename)
 
+    image_filename = f"{date_prefix}-{slug}.png"
+    image_relpath = f"/assets/images/{image_filename}"
+    image_dir = os.path.join(os.getcwd(), "assets", "images")
+    os.makedirs(image_dir, exist_ok=True)
+    image_path = os.path.join(image_dir, image_filename)
+
+    image_prompt = (
+        "Create a clean, modern, marketing-themed hero image for a blog post. "
+        f"Topic: {topic}. "
+        "Style: minimal, high-contrast, professional, no text, no logos, "
+        "no brand names, no watermarks."
+    )
+
+    image_response = requests.post(
+        "https://api.openai.com/v1/responses",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "input": image_prompt,
+            "tools": [
+                {
+                    "type": "image_generation",
+                    "size": "1536x1024",
+                    "quality": "medium",
+                }
+            ],
+            "tool_choice": {"type": "image_generation"},
+        },
+        timeout=90,
+    )
+
+    if image_response.status_code >= 400:
+        raise SystemExit(
+            f"OpenAI image error {image_response.status_code}: {image_response.text}"
+        )
+
+    image_payload = image_response.json()
+    image_b64 = extract_image_base64(image_payload)
+    if not image_b64:
+        raise SystemExit("No image returned from model.")
+
+    with open(image_path, "wb") as handle:
+        handle.write(base64.b64decode(image_b64))
+
     front_matter = (
         "---\n"
         f"title: \"{title.replace('\"', '')}\"\n"
         f"date: {today.isoformat()}\n"
+        f"image: {image_relpath}\n"
         "layout: post\n"
         "---\n\n"
     )

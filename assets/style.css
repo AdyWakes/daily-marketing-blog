@@ -69,6 +69,15 @@ body {
   margin-bottom: 8px;
 }
 
+.post-hero {
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #eee2d5;
+  margin: 16px 0 20px;
+}
+
 .post-date {
   color: var(--muted);
   margin-top: 0;
