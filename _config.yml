@@ -1,0 +1,11 @@
+title: "Daily AI Blog"
+description: "An automatically published daily blog"
+timezone: "UTC"
+markdown: kramdown
+permalink: /:year/:month/:day/:title/
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
