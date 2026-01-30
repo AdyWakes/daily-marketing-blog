@@ -1,22 +1,23 @@
 # Daily AI Blog on GitHub Pages
 
-This repo is set up to publish a daily AI-generated blog post using GitHub Actions,
-and host it for free on GitHub Pages.
+This repo is set up to publish a daily blog post from your prewritten drafts using
+GitHub Actions, and host it for free on GitHub Pages.
 
 ## How it works
 - GitHub Actions runs on a daily schedule (UTC).
-- The workflow calls the OpenAI API to generate a post.
+- The workflow takes one Markdown file from `drafts/`.
 - A new Markdown file is created in `_posts/`.
-- A hero image is generated and saved to `assets/images/`.
+- If you add images to `drafts/images/`, one image is picked at random and copied
+  to `assets/images/`.
 - GitHub Pages builds the site with Jekyll and publishes it.
 
-## Required GitHub Secrets
-Set these in your repo: Settings → Secrets and variables → Actions → New repository secret.
-
-- `OPENAI_API_KEY` (required)
-- `OPENAI_MODEL` (optional, default `gpt-4o-mini`)
-- `BLOG_TOPIC` (optional, e.g. `AI productivity tips`)
-- `POST_WORDS` (optional, default `700`)
+## Drafts format
+- Put drafts in `drafts/` as `.md` files.
+- The first non-empty line becomes the title (or add YAML front matter `title:`).
+- Optional images:
+  - Put images in `drafts/images/`.
+  - Add `image: random` in the draft front matter to force a random image.
+  - If no `image` is specified, the workflow still uses a random image if available.
 
 ## GitHub Pages setup
 1. In repo settings: Pages → Source = `Deploy from a branch`.

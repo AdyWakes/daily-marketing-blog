@@ -22,17 +22,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install deps
-        run: pip install -r requirements.txt
-
       - name: Generate post
         run: python scripts/generate_post.py
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-          BLOG_TOPIC: ${{ secrets.BLOG_TOPIC }}
-          POST_WORDS: ${{ secrets.POST_WORDS }}
-          SITE_TITLE: ${{ secrets.SITE_TITLE }}
 
       - name: Commit and push
         run: |

@@ -1,10 +1,8 @@
-import base64
-import json
 import os
+import random
 import re
+import shutil
 from datetime import datetime, timezone
-
-import requests
 
 
 def slugify(value: str) -> str:
@@ -13,54 +11,51 @@ def slugify(value: str) -> str:
     return value.strip("-") or "daily-post"
 
 
-def extract_text(payload: dict) -> str:
-    if isinstance(payload, dict) and payload.get("output_text"):
-        return str(payload["output_text"]).strip()
+def parse_front_matter(text: str) -> tuple[dict, str]:
+    if not text.startswith("---\n"):
+        return {}, text
 
-    texts = []
-    for item in payload.get("output", []):
-        if item.get("type") != "message":
+    lines = text.splitlines()
+    front_matter = {}
+    end_index = None
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == "---":
+            end_index = idx
+            break
+        if ":" in lines[idx]:
+            key, value = lines[idx].split(":", 1)
+            front_matter[key.strip()] = value.strip().strip('"').strip("'")
+
+    if end_index is None:
+        return {}, text
+
+    body = "\n".join(lines[end_index + 1 :]).lstrip()
+    return front_matter, body
+
+
+def extract_title_from_body(body: str) -> tuple[str, str]:
+    lines = body.splitlines()
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
             continue
-        for content in item.get("content", []):
-            ctype = content.get("type")
-            if ctype in ("output_text", "text"):
-                text = content.get("text", "")
-                if text:
-                    texts.append(text)
-    return "\n".join(texts).strip()
+        title = stripped.lstrip("#").strip()
+        remaining = "\n".join(lines[idx + 1 :]).lstrip()
+        return title, remaining
+    return "", body
 
 
-def extract_image_base64(payload: dict) -> str:
-    for item in payload.get("output", []):
-        if item.get("type") == "image_generation_call":
-            if item.get("result"):
-                return item["result"]
-            if item.get("b64_json"):
-                return item["b64_json"]
-    return ""
-
-
-def parse_json_from_text(text: str) -> dict:
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-    raise ValueError("Could not parse JSON from model response")
+def pick_random_image(images_dir: str, allowed_exts: tuple[str, ...]) -> str | None:
+    if not os.path.isdir(images_dir):
+        return None
+    candidates = []
+    for name in os.listdir(images_dir):
+        if name.lower().endswith(allowed_exts):
+            candidates.append(os.path.join(images_dir, name))
+    return random.choice(candidates) if candidates else None
 
 
 def main() -> None:
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise SystemExit("OPENAI_API_KEY is required.")
-
-    model = os.environ.get("OPENAI_MODEL", "").strip() or "gpt-4o-mini"
-    topic = os.environ.get("BLOG_TOPIC", "practical AI tips for everyday work")
-    word_env = os.environ.get("POST_WORDS", "700").strip()
-    word_target = int(word_env) if word_env.isdigit() else 700
-    site_title = os.environ.get("SITE_TITLE", "Daily AI Blog")
-
     today = datetime.now(timezone.utc).date()
     date_prefix = today.strftime("%Y-%m-%d")
 
@@ -72,110 +67,89 @@ def main() -> None:
             print("Post already exists for today. Exiting.")
             return
 
-    prompt = (
-        f"Write a blog post for {site_title}. Topic: {topic}.\n"
-        f"Target length: about {word_target} words.\n"
-        "Return a JSON object with keys: title, body.\n"
-        "body must be Markdown (no code fences)."
+    drafts_dir = os.path.join(os.getcwd(), "drafts")
+    if not os.path.isdir(drafts_dir):
+        print("No drafts folder found. Exiting.")
+        return
+
+    draft_files = sorted(
+        [
+            name
+            for name in os.listdir(drafts_dir)
+            if name.lower().endswith(".md")
+        ]
     )
 
-    response = requests.post(
-        "https://api.openai.com/v1/responses",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "input": prompt,
-        },
-        timeout=60,
-    )
+    if not draft_files:
+        print("No draft posts found. Exiting.")
+        return
 
-    if response.status_code >= 400:
-        raise SystemExit(
-            f"OpenAI API error {response.status_code}: {response.text}"
-        )
+    draft_name = draft_files[0]
+    draft_path = os.path.join(drafts_dir, draft_name)
+    with open(draft_path, "r", encoding="utf-8") as handle:
+        draft_text = handle.read()
 
-    payload = response.json()
-    text = extract_text(payload)
-    if not text:
-        raise SystemExit("Empty response from model.")
-
-    try:
-        data = parse_json_from_text(text)
-        title = str(data.get("title", "")).strip() or f"Daily Post {date_prefix}"
-        body = str(data.get("body", "")).strip() or text
-    except ValueError:
+    front_matter, body = parse_front_matter(draft_text)
+    title = front_matter.get("title", "").strip()
+    if not title:
+        title, body = extract_title_from_body(body)
+    if not title:
         title = f"Daily Post {date_prefix}"
-        body = text
 
     slug = slugify(title)
     filename = f"{date_prefix}-{slug}.md"
     filepath = os.path.join(posts_dir, filename)
 
-    image_filename = f"{date_prefix}-{slug}.png"
-    image_relpath = f"/assets/images/{image_filename}"
+    image_relpath = ""
     image_dir = os.path.join(os.getcwd(), "assets", "images")
     os.makedirs(image_dir, exist_ok=True)
-    image_path = os.path.join(image_dir, image_filename)
+    allowed_exts = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+    draft_image = front_matter.get("image", "").strip()
+    image_source = None
 
-    image_prompt = (
-        "Create a clean, modern, marketing-themed hero image for a blog post. "
-        f"Topic: {topic}. "
-        "Style: minimal, high-contrast, professional, no text, no logos, "
-        "no brand names, no watermarks."
-    )
-
-    image_response = requests.post(
-        "https://api.openai.com/v1/responses",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "input": image_prompt,
-            "tools": [
-                {
-                    "type": "image_generation",
-                    "size": "1536x1024",
-                    "quality": "medium",
-                }
-            ],
-            "tool_choice": {"type": "image_generation"},
-        },
-        timeout=90,
-    )
-
-    if image_response.status_code >= 400:
-        raise SystemExit(
-            f"OpenAI image error {image_response.status_code}: {image_response.text}"
+    if draft_image:
+        if draft_image.lower() in ("random", "auto"):
+            image_source = pick_random_image(
+                os.path.join(drafts_dir, "images"), allowed_exts
+            )
+        elif draft_image.startswith("http://") or draft_image.startswith("https://"):
+            image_relpath = draft_image
+        else:
+            candidate = os.path.join(drafts_dir, draft_image)
+            if os.path.isfile(candidate):
+                image_source = candidate
+    else:
+        image_source = pick_random_image(
+            os.path.join(drafts_dir, "images"), allowed_exts
         )
 
-    image_payload = image_response.json()
-    image_b64 = extract_image_base64(image_payload)
-    if not image_b64:
-        raise SystemExit("No image returned from model.")
-
-    with open(image_path, "wb") as handle:
-        handle.write(base64.b64decode(image_b64))
+    if image_source:
+        _, ext = os.path.splitext(image_source)
+        image_filename = f"{date_prefix}-{slug}{ext.lower()}"
+        image_relpath = f"/assets/images/{image_filename}"
+        image_path = os.path.join(image_dir, image_filename)
+        shutil.copy2(image_source, image_path)
 
     safe_title = title.replace('"', "")
 
-    front_matter = (
-        "---\n"
-        f"title: \"{safe_title}\"\n"
-        f"date: {today.isoformat()}\n"
-        f"image: {image_relpath}\n"
-        "layout: post\n"
-        "---\n\n"
-    )
+    front_matter_lines = [
+        "---",
+        f"title: \"{safe_title}\"",
+        f"date: {today.isoformat()}",
+    ]
+    if image_relpath:
+        front_matter_lines.append(f"image: {image_relpath}")
+    front_matter_lines.extend(["layout: post", "---", ""])
+    front_matter = "\n".join(front_matter_lines) + "\n"
 
     with open(filepath, "w", encoding="utf-8") as handle:
         handle.write(front_matter)
         handle.write(body)
         handle.write("\n")
+
+    used_dir = os.path.join(drafts_dir, "used")
+    os.makedirs(used_dir, exist_ok=True)
+    shutil.move(draft_path, os.path.join(used_dir, draft_name))
 
     print(f"Created {filepath}")
 
