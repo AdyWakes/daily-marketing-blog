@@ -55,7 +55,7 @@ def main() -> None:
     if not api_key:
         raise SystemExit("OPENAI_API_KEY is required.")
 
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    model = os.environ.get("OPENAI_MODEL", "").strip() or "gpt-4o-mini"
     topic = os.environ.get("BLOG_TOPIC", "practical AI tips for everyday work")
     word_env = os.environ.get("POST_WORDS", "700").strip()
     word_target = int(word_env) if word_env.isdigit() else 700
