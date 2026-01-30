@@ -160,9 +160,11 @@ def main() -> None:
     with open(image_path, "wb") as handle:
         handle.write(base64.b64decode(image_b64))
 
+    safe_title = title.replace('"', "")
+
     front_matter = (
         "---\n"
-        f"title: \"{title.replace('\"', '')}\"\n"
+        f"title: \"{safe_title}\"\n"
         f"date: {today.isoformat()}\n"
         f"image: {image_relpath}\n"
         "layout: post\n"
