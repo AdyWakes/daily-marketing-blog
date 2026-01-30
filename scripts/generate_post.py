@@ -57,7 +57,8 @@ def main() -> None:
 
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     topic = os.environ.get("BLOG_TOPIC", "practical AI tips for everyday work")
-    word_target = int(os.environ.get("POST_WORDS", "700"))
+    word_env = os.environ.get("POST_WORDS", "700").strip()
+    word_target = int(word_env) if word_env.isdigit() else 700
     site_title = os.environ.get("SITE_TITLE", "Daily AI Blog")
 
     today = datetime.now(timezone.utc).date()
