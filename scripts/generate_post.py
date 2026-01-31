@@ -244,11 +244,15 @@ def main() -> None:
 
     image_relpath = ""
     pool_dir = os.environ.get("IMAGE_POOL_DIR", "assets/random-images").strip()
-    image_source = pick_random_image(os.path.join(os.getcwd(), pool_dir))
+    pool_abs = os.path.join(os.getcwd(), pool_dir)
+    image_source = pick_random_image(pool_abs)
     if image_source:
+        # Use the existing pool image so the URL is valid before commit.
+        rel_from_root = os.path.relpath(image_source, os.getcwd()).replace("\\", "/")
+        image_relpath = f"/{rel_from_root}"
+        # Also copy into assets/images for local archive.
         _, ext = os.path.splitext(image_source)
         image_filename = f"{date_prefix}-{slug}{ext.lower()}"
-        image_relpath = f"/assets/images/{image_filename}"
         image_path = os.path.join(image_dir, image_filename)
         with open(image_source, "rb") as src, open(image_path, "wb") as dst:
             dst.write(src.read())
