@@ -3,6 +3,10 @@ name: Daily Post
 on:
   schedule:
     - cron: "30 2 * * *"
+    - cron: "30 5 * * *"
+    - cron: "30 8 * * *"
+    - cron: "30 11 * * *"
+    - cron: "30 14 * * *"
   workflow_dispatch:
     inputs:
       force_post:
@@ -43,6 +47,7 @@ jobs:
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
           BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
           FORCE_POST: ${{ inputs.force_post }}
+          POSTS_PER_DAY: "5"
 
       - name: Commit and push
         run: |

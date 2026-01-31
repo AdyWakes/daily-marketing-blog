@@ -150,6 +150,8 @@ def main() -> None:
     word_env = os.environ.get("POST_WORDS", "700").strip()
     word_target = int(word_env) if word_env.isdigit() else 700
     site_title = os.environ.get("SITE_TITLE", "Daily Blog")
+    posts_per_day_env = os.environ.get("POSTS_PER_DAY", "5").strip()
+    posts_per_day = int(posts_per_day_env) if posts_per_day_env.isdigit() else 5
 
     blogger_client_id = os.environ.get("BLOGGER_CLIENT_ID", "").strip()
     blogger_client_secret = os.environ.get("BLOGGER_CLIENT_SECRET", "").strip()
@@ -172,12 +174,14 @@ def main() -> None:
         "true",
         "yes",
     }
-    for name in os.listdir(posts_dir):
-        if name.startswith(date_prefix + "-") and name.endswith(".md"):
-            if force_post:
-                break
-            print("Post already exists for today. Exiting.")
-            return
+    todays_posts = [
+        name
+        for name in os.listdir(posts_dir)
+        if name.startswith(date_prefix + "-") and name.endswith(".md")
+    ]
+    if not force_post and len(todays_posts) >= posts_per_day:
+        print("Daily post limit reached. Exiting.")
+        return
 
     download_link = (
         "https://play.google.com/store/apps/details?id=com.company.rentwix&pcampaignid=web_share"
