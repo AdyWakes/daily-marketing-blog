@@ -1,11 +1,11 @@
-import base64
 import json
 import os
+import random
 import re
 from datetime import datetime, timezone
 
-import markdown
 import requests
+import markdown
 
 
 def slugify(value: str) -> str:
@@ -27,20 +27,16 @@ def extract_text_from_response(payload: dict) -> str:
     return "\n".join(chunks).strip()
 
 
-def extract_inline_image(payload: dict) -> tuple[str, str]:
-    candidates = payload.get("candidates", [])
-    if not candidates:
-        return "", ""
-    parts = candidates[0].get("content", {}).get("parts", [])
-    for part in parts:
-        inline = part.get("inlineData") or part.get("inline_data")
-        if not inline:
-            continue
-        data = inline.get("data", "")
-        mime_type = inline.get("mimeType") or inline.get("mime_type", "")
-        if data:
-            return data, mime_type
-    return "", ""
+def pick_random_image(images_dir: str) -> str:
+    if not os.path.isdir(images_dir):
+        return ""
+    allowed_exts = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+    candidates = [
+        os.path.join(images_dir, name)
+        for name in os.listdir(images_dir)
+        if name.lower().endswith(allowed_exts)
+    ]
+    return random.choice(candidates) if candidates else ""
 
 
 def call_gemini(api_key: str, model: str, contents: list[dict]) -> dict:
@@ -118,10 +114,6 @@ def main() -> None:
         raise SystemExit("GEMINI_API_KEY is required.")
 
     text_model = os.environ.get("GEMINI_TEXT_MODEL", "").strip() or "gemini-2.5-flash"
-    image_model = (
-        os.environ.get("GEMINI_IMAGE_MODEL", "").strip()
-        or "gemini-2.5-flash-image"
-    )
     topic = os.environ.get(
         "BLOG_TOPIC", "marketing strategies to increase app users"
     )
@@ -199,35 +191,16 @@ def main() -> None:
     image_dir = os.path.join(os.getcwd(), "assets", "images")
     os.makedirs(image_dir, exist_ok=True)
 
-    image_prompt = (
-        "Create a clean, modern, marketing-themed hero image for a blog post. "
-        f"Topic: {topic}. "
-        "Style: minimal, high-contrast, professional, no text, no logos, "
-        "no brand names, no watermarks."
-    )
-
-    image_payload = call_gemini(
-        api_key,
-        image_model,
-        [{"parts": [{"text": image_prompt}]}],
-    )
-
-    image_data, image_mime = extract_inline_image(image_payload)
-    if not image_data:
-        raise SystemExit("No image returned from Gemini image model.")
-
-    ext = "png"
-    if image_mime.endswith("jpeg"):
-        ext = "jpg"
-    elif image_mime.endswith("webp"):
-        ext = "webp"
-
-    image_filename = f"{date_prefix}-{slug}.{ext}"
-    image_relpath = f"/assets/images/{image_filename}"
-    image_path = os.path.join(image_dir, image_filename)
-
-    with open(image_path, "wb") as handle:
-        handle.write(base64.b64decode(image_data))
+    image_relpath = ""
+    pool_dir = os.environ.get("IMAGE_POOL_DIR", "assets/random-images").strip()
+    image_source = pick_random_image(os.path.join(os.getcwd(), pool_dir))
+    if image_source:
+        _, ext = os.path.splitext(image_source)
+        image_filename = f"{date_prefix}-{slug}{ext.lower()}"
+        image_relpath = f"/assets/images/{image_filename}"
+        image_path = os.path.join(image_dir, image_filename)
+        with open(image_source, "rb") as src, open(image_path, "wb") as dst:
+            dst.write(src.read())
 
     safe_title = title.replace('"', "")
 

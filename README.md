@@ -5,9 +5,9 @@ GitHub Actions.
 
 ## How it works
 - GitHub Actions runs on a daily schedule (UTC).
-- The workflow calls the Gemini API to generate a post and a hero image.
+- The workflow calls the Gemini API to generate a post.
 - A new Markdown file is created in `_posts/` for archive.
-- A hero image is saved to `assets/images/`.
+- A hero image is copied from `assets/random-images/` to `assets/images/`.
 - The post is published to Blogger via the Blogger API.
 
 ## Required GitHub Secrets
@@ -15,13 +15,15 @@ Set these in your repo: Settings → Secrets and variables → Actions → New r
 
 - `GEMINI_API_KEY` (required)
 - `GEMINI_TEXT_MODEL` (optional, default `gemini-2.5-flash`)
-- `GEMINI_IMAGE_MODEL` (optional, default `gemini-2.5-flash-image`)
 - `BLOG_TOPIC` (optional, e.g. `marketing strategies to increase app users`)
 - `POST_WORDS` (optional, default `700`)
 - `BLOGGER_CLIENT_ID` (required)
 - `BLOGGER_CLIENT_SECRET` (required)
 - `BLOGGER_REFRESH_TOKEN` (required)
 - `BLOGGER_BLOG_ID` (required)
+
+## Images
+Add any images to `assets/random-images/`. One will be chosen at random per post.
 
 ## GitHub Pages setup
 1. In repo settings: Pages → Source = `Deploy from a branch`.
