@@ -144,7 +144,8 @@ def main() -> None:
 
     text_model = os.environ.get("GEMINI_TEXT_MODEL", "").strip() or "gemini-2.5-flash"
     topic = os.environ.get(
-        "BLOG_TOPIC", "marketing strategies to increase app users"
+        "BLOG_TOPIC",
+        "marketing strategies to increase app users for Rentwix in India",
     )
     word_env = os.environ.get("POST_WORDS", "700").strip()
     word_target = int(word_env) if word_env.isdigit() else 700
@@ -178,9 +179,16 @@ def main() -> None:
             print("Post already exists for today. Exiting.")
             return
 
+    download_link = (
+        "https://play.google.com/store/apps/details?id=com.company.rentwix&pcampaignid=web_share"
+    )
+
     prompt = (
         f"Write a blog post for {site_title}. Topic: {topic}.\n"
         f"Target length: about {word_target} words.\n"
+        "Audience: India only. Brand: Rentwix (rental homes app).\n"
+        "Include these key benefits: verified listings, easy search, fast communication, modern renting.\n"
+        f"Every post must include this exact download link once near the end: {download_link}\n"
         "Return ONLY valid JSON (no markdown, no code fences, no extra text) "
         "with keys: title and body. "
         "body must be Markdown and must NOT include an H1 title."
