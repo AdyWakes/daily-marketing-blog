@@ -34,6 +34,10 @@ jobs:
           BLOG_TOPIC: ${{ secrets.BLOG_TOPIC }}
           POST_WORDS: ${{ secrets.POST_WORDS }}
           SITE_TITLE: ${{ secrets.SITE_TITLE }}
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
 
       - name: Commit and push
         run: |

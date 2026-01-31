@@ -1,14 +1,14 @@
 # Daily AI Blog on GitHub Pages
 
-This repo is set up to publish a daily Gemini-generated blog post using GitHub Actions,
-and host it for free on GitHub Pages.
+This repo is set up to publish a daily Gemini-generated blog post to Blogger using
+GitHub Actions.
 
 ## How it works
 - GitHub Actions runs on a daily schedule (UTC).
 - The workflow calls the Gemini API to generate a post and a hero image.
-- A new Markdown file is created in `_posts/`.
+- A new Markdown file is created in `_posts/` for archive.
 - A hero image is saved to `assets/images/`.
-- GitHub Pages builds the site with Jekyll and publishes it.
+- The post is published to Blogger via the Blogger API.
 
 ## Required GitHub Secrets
 Set these in your repo: Settings → Secrets and variables → Actions → New repository secret.
@@ -18,6 +18,10 @@ Set these in your repo: Settings → Secrets and variables → Actions → New r
 - `GEMINI_IMAGE_MODEL` (optional, default `gemini-2.5-flash-image`)
 - `BLOG_TOPIC` (optional, e.g. `marketing strategies to increase app users`)
 - `POST_WORDS` (optional, default `700`)
+- `BLOGGER_CLIENT_ID` (required)
+- `BLOGGER_CLIENT_SECRET` (required)
+- `BLOGGER_REFRESH_TOKEN` (required)
+- `BLOGGER_BLOG_ID` (required)
 
 ## GitHub Pages setup
 1. In repo settings: Pages → Source = `Deploy from a branch`.
