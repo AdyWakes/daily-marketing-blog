@@ -1,8 +1,10 @@
+import base64
+import json
 import os
-import random
 import re
-import shutil
 from datetime import datetime, timezone
+
+import requests
 
 
 def slugify(value: str) -> str:
@@ -11,51 +13,73 @@ def slugify(value: str) -> str:
     return value.strip("-") or "daily-post"
 
 
-def parse_front_matter(text: str) -> tuple[dict, str]:
-    if not text.startswith("---\n"):
-        return {}, text
-
-    lines = text.splitlines()
-    front_matter = {}
-    end_index = None
-    for idx in range(1, len(lines)):
-        if lines[idx].strip() == "---":
-            end_index = idx
-            break
-        if ":" in lines[idx]:
-            key, value = lines[idx].split(":", 1)
-            front_matter[key.strip()] = value.strip().strip('"').strip("'")
-
-    if end_index is None:
-        return {}, text
-
-    body = "\n".join(lines[end_index + 1 :]).lstrip()
-    return front_matter, body
+def extract_text_from_response(payload: dict) -> str:
+    candidates = payload.get("candidates", [])
+    if not candidates:
+        return ""
+    parts = candidates[0].get("content", {}).get("parts", [])
+    chunks = []
+    for part in parts:
+        text = part.get("text")
+        if text:
+            chunks.append(text)
+    return "\n".join(chunks).strip()
 
 
-def extract_title_from_body(body: str) -> tuple[str, str]:
-    lines = body.splitlines()
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
+def extract_inline_image(payload: dict) -> tuple[str, str]:
+    candidates = payload.get("candidates", [])
+    if not candidates:
+        return "", ""
+    parts = candidates[0].get("content", {}).get("parts", [])
+    for part in parts:
+        inline = part.get("inlineData") or part.get("inline_data")
+        if not inline:
             continue
-        title = stripped.lstrip("#").strip()
-        remaining = "\n".join(lines[idx + 1 :]).lstrip()
-        return title, remaining
-    return "", body
+        data = inline.get("data", "")
+        mime_type = inline.get("mimeType") or inline.get("mime_type", "")
+        if data:
+            return data, mime_type
+    return "", ""
 
 
-def pick_random_image(images_dir: str, allowed_exts: tuple[str, ...]) -> str | None:
-    if not os.path.isdir(images_dir):
-        return None
-    candidates = []
-    for name in os.listdir(images_dir):
-        if name.lower().endswith(allowed_exts):
-            candidates.append(os.path.join(images_dir, name))
-    return random.choice(candidates) if candidates else None
+def call_gemini(api_key: str, model: str, contents: list[dict]) -> dict:
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/"
+        f"models/{model}:generateContent"
+    )
+    response = requests.post(
+        url,
+        headers={
+            "x-goog-api-key": api_key,
+            "Content-Type": "application/json",
+        },
+        json={"contents": contents},
+        timeout=90,
+    )
+    if response.status_code >= 400:
+        raise SystemExit(
+            f"Gemini API error {response.status_code}: {response.text}"
+        )
+    return response.json()
 
 
 def main() -> None:
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise SystemExit("GEMINI_API_KEY is required.")
+
+    text_model = os.environ.get("GEMINI_TEXT_MODEL", "").strip() or "gemini-2.5-flash"
+    image_model = (
+        os.environ.get("GEMINI_IMAGE_MODEL", "").strip()
+        or "gemini-2.5-flash-image"
+    )
+    topic = os.environ.get(
+        "BLOG_TOPIC", "marketing strategies to increase app users"
+    )
+    word_env = os.environ.get("POST_WORDS", "700").strip()
+    word_target = int(word_env) if word_env.isdigit() else 700
+    site_title = os.environ.get("SITE_TITLE", "Daily Blog")
+
     today = datetime.now(timezone.utc).date()
     date_prefix = today.strftime("%Y-%m-%d")
 
@@ -67,68 +91,67 @@ def main() -> None:
             print("Post already exists for today. Exiting.")
             return
 
-    drafts_dir = os.path.join(os.getcwd(), "drafts")
-    if not os.path.isdir(drafts_dir):
-        print("No drafts folder found. Exiting.")
-        return
-
-    draft_files = sorted(
-        [
-            name
-            for name in os.listdir(drafts_dir)
-            if name.lower().endswith(".md")
-        ]
+    prompt = (
+        f"Write a blog post for {site_title}. Topic: {topic}.\n"
+        f"Target length: about {word_target} words.\n"
+        "Return a JSON object with keys: title and body.\n"
+        "body must be Markdown (no code fences)."
     )
 
-    if not draft_files:
-        print("No draft posts found. Exiting.")
-        return
+    text_payload = call_gemini(
+        api_key,
+        text_model,
+        [{"parts": [{"text": prompt}]}],
+    )
 
-    draft_name = draft_files[0]
-    draft_path = os.path.join(drafts_dir, draft_name)
-    with open(draft_path, "r", encoding="utf-8") as handle:
-        draft_text = handle.read()
+    text_response = extract_text_from_response(text_payload)
+    if not text_response:
+        raise SystemExit("Empty response from Gemini text model.")
 
-    front_matter, body = parse_front_matter(draft_text)
-    title = front_matter.get("title", "").strip()
-    if not title:
-        title, body = extract_title_from_body(body)
-    if not title:
+    try:
+        data = json.loads(text_response)
+        title = str(data.get("title", "")).strip() or f"Daily Post {date_prefix}"
+        body = str(data.get("body", "")).strip() or text_response
+    except json.JSONDecodeError:
         title = f"Daily Post {date_prefix}"
+        body = text_response
 
     slug = slugify(title)
     filename = f"{date_prefix}-{slug}.md"
     filepath = os.path.join(posts_dir, filename)
 
-    image_relpath = ""
     image_dir = os.path.join(os.getcwd(), "assets", "images")
     os.makedirs(image_dir, exist_ok=True)
-    allowed_exts = (".png", ".jpg", ".jpeg", ".webp", ".gif")
-    draft_image = front_matter.get("image", "").strip()
-    image_source = None
 
-    if draft_image:
-        if draft_image.lower() in ("random", "auto"):
-            image_source = pick_random_image(
-                os.path.join(drafts_dir, "images"), allowed_exts
-            )
-        elif draft_image.startswith("http://") or draft_image.startswith("https://"):
-            image_relpath = draft_image
-        else:
-            candidate = os.path.join(drafts_dir, draft_image)
-            if os.path.isfile(candidate):
-                image_source = candidate
-    else:
-        image_source = pick_random_image(
-            os.path.join(drafts_dir, "images"), allowed_exts
-        )
+    image_prompt = (
+        "Create a clean, modern, marketing-themed hero image for a blog post. "
+        f"Topic: {topic}. "
+        "Style: minimal, high-contrast, professional, no text, no logos, "
+        "no brand names, no watermarks."
+    )
 
-    if image_source:
-        _, ext = os.path.splitext(image_source)
-        image_filename = f"{date_prefix}-{slug}{ext.lower()}"
-        image_relpath = f"/assets/images/{image_filename}"
-        image_path = os.path.join(image_dir, image_filename)
-        shutil.copy2(image_source, image_path)
+    image_payload = call_gemini(
+        api_key,
+        image_model,
+        [{"parts": [{"text": image_prompt}]}],
+    )
+
+    image_data, image_mime = extract_inline_image(image_payload)
+    if not image_data:
+        raise SystemExit("No image returned from Gemini image model.")
+
+    ext = "png"
+    if image_mime.endswith("jpeg"):
+        ext = "jpg"
+    elif image_mime.endswith("webp"):
+        ext = "webp"
+
+    image_filename = f"{date_prefix}-{slug}.{ext}"
+    image_relpath = f"/assets/images/{image_filename}"
+    image_path = os.path.join(image_dir, image_filename)
+
+    with open(image_path, "wb") as handle:
+        handle.write(base64.b64decode(image_data))
 
     safe_title = title.replace('"', "")
 
@@ -146,10 +169,6 @@ def main() -> None:
         handle.write(front_matter)
         handle.write(body)
         handle.write("\n")
-
-    used_dir = os.path.join(drafts_dir, "used")
-    os.makedirs(used_dir, exist_ok=True)
-    shutil.move(draft_path, os.path.join(used_dir, draft_name))
 
     print(f"Created {filepath}")
 

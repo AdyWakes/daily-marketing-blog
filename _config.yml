@@ -1,5 +1,5 @@
-title: "Daily AI Blog"
-description: "An automatically published daily blog"
+title: "Daily Blog"
+description: "A daily blog"
 timezone: "UTC"
 markdown: kramdown
 permalink: /:year/:month/:day/:title/

@@ -22,8 +22,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install deps
+        run: pip install -r requirements.txt
+
       - name: Generate post
         run: python scripts/generate_post.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TEXT_MODEL: ${{ secrets.GEMINI_TEXT_MODEL }}
+          GEMINI_IMAGE_MODEL: ${{ secrets.GEMINI_IMAGE_MODEL }}
+          BLOG_TOPIC: ${{ secrets.BLOG_TOPIC }}
+          POST_WORDS: ${{ secrets.POST_WORDS }}
+          SITE_TITLE: ${{ secrets.SITE_TITLE }}
 
       - name: Commit and push
         run: |
