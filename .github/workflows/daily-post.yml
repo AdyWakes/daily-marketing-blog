@@ -1,4 +1,4 @@
-name: Daily AI Post
+name: Daily Post
 
 on:
   schedule:
