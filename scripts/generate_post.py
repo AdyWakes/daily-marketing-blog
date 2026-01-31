@@ -191,6 +191,8 @@ def main() -> None:
         f"Write a blog post for {site_title}. Topic: {topic}.\n"
         f"Target length: about {word_target} words.\n"
         "Audience: India only. Brand: Rentwix (rental homes app).\n"
+        "Every heading must explicitly include the word 'Rentwix'.\n"
+        "The body should naturally mention 'Rentwix' multiple times (without keyword stuffing).\n"
         "Include these key benefits: verified listings, easy search, fast communication, modern renting.\n"
         f"Every post must include this exact download link once near the end: {download_link}\n"
         "Return ONLY valid JSON (no markdown, no code fences, no extra text) "
