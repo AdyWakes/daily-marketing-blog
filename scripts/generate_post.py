@@ -26,6 +26,35 @@ def extract_text_from_response(payload: dict) -> str:
             chunks.append(text)
     return "\n".join(chunks).strip()
 
+def parse_json_from_text(text: str) -> dict:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        lines = [line for line in lines if not line.strip().startswith("```")]
+        cleaned = "\n".join(lines).strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return json.loads(cleaned[start : end + 1])
+    raise ValueError("Could not parse JSON from model response")
+
+
+def extract_title_from_body(body: str) -> tuple[str, str]:
+    lines = body.splitlines()
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            title = stripped.lstrip("#").strip()
+            remaining = "\n".join(lines[idx + 1 :]).lstrip()
+            return title, remaining
+        break
+    return "", body
+
 
 def pick_random_image(images_dir: str) -> str:
     if not os.path.isdir(images_dir):
@@ -167,12 +196,19 @@ def main() -> None:
         raise SystemExit("Empty response from Gemini text model.")
 
     try:
-        data = json.loads(text_response)
-        title = str(data.get("title", "")).strip() or f"Daily Post {date_prefix}"
-        body = str(data.get("body", "")).strip() or text_response
-    except json.JSONDecodeError:
-        title = f"Daily Post {date_prefix}"
+        data = parse_json_from_text(text_response)
+        title = str(data.get("title", "")).strip()
+        body = str(data.get("body", "")).strip()
+    except ValueError:
+        title = ""
         body = text_response
+
+    if not body:
+        body = text_response
+    if not title:
+        title, body = extract_title_from_body(body)
+    if not title:
+        title = f"Daily Post {date_prefix}"
 
     slug = slugify(title)
     filename = f"{date_prefix}-{slug}.md"
@@ -221,7 +257,7 @@ def main() -> None:
 
     repo_name = os.environ.get("GITHUB_REPOSITORY", "").strip()
     image_url = ""
-    if repo_name:
+    if repo_name and image_relpath:
         image_url = (
             f"https://raw.githubusercontent.com/{repo_name}/main"
             f"{image_relpath}"
