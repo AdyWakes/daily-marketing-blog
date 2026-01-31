@@ -185,6 +185,16 @@ def main() -> None:
     slug = slugify(title)
     filename = f"{date_prefix}-{slug}.md"
     filepath = os.path.join(posts_dir, filename)
+    if force_post and os.path.exists(filepath):
+        counter = 2
+        while True:
+            candidate = f"{date_prefix}-{slug}-{counter}.md"
+            candidate_path = os.path.join(posts_dir, candidate)
+            if not os.path.exists(candidate_path):
+                filename = candidate
+                filepath = candidate_path
+                break
+            counter += 1
 
     image_dir = os.path.join(os.getcwd(), "assets", "images")
     os.makedirs(image_dir, exist_ok=True)

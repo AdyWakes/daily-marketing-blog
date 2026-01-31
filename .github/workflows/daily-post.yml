@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
+    inputs:
+      force_post:
+        description: "Force create a new post even if today's post exists"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -38,6 +43,7 @@ jobs:
           BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
           BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+          FORCE_POST: ${{ inputs.force_post }}
 
       - name: Commit and push
         run: |
