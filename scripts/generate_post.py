@@ -181,8 +181,9 @@ def main() -> None:
     prompt = (
         f"Write a blog post for {site_title}. Topic: {topic}.\n"
         f"Target length: about {word_target} words.\n"
-        "Return a JSON object with keys: title and body.\n"
-        "body must be Markdown (no code fences)."
+        "Return ONLY valid JSON (no markdown, no code fences, no extra text) "
+        "with keys: title and body. "
+        "body must be Markdown and must NOT include an H1 title."
     )
 
     text_payload = call_gemini(
@@ -207,6 +208,8 @@ def main() -> None:
         body = text_response
     if not title:
         title, body = extract_title_from_body(body)
+    if body.lstrip().startswith("#"):
+        _, body = extract_title_from_body(body)
     if not title:
         title = f"Daily Post {date_prefix}"
 
