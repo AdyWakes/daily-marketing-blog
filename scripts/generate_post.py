@@ -145,8 +145,15 @@ def main() -> None:
     posts_dir = os.path.join(os.getcwd(), "_posts")
     os.makedirs(posts_dir, exist_ok=True)
 
+    force_post = os.environ.get("FORCE_POST", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     for name in os.listdir(posts_dir):
         if name.startswith(date_prefix + "-") and name.endswith(".md"):
+            if force_post:
+                break
             print("Post already exists for today. Exiting.")
             return
 
