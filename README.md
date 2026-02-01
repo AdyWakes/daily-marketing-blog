@@ -8,7 +8,7 @@ GitHub Actions.
 - The workflow calls the Gemini API to generate a post.
 - A new Markdown file is created in `_posts/` for archive.
 - A hero image is copied from `assets/random-images/` to `assets/images/`.
-- The post is published to Blogger via the Blogger API.
+- The post is published to Blogger and WordPress.com.
 
 ## Required GitHub Secrets
 Set these in your repo: Settings → Secrets and variables → Actions → New repository secret.
@@ -21,6 +21,9 @@ Set these in your repo: Settings → Secrets and variables → Actions → New r
 - `BLOGGER_CLIENT_SECRET` (required)
 - `BLOGGER_REFRESH_TOKEN` (required)
 - `BLOGGER_BLOG_ID` (required)
+- `WP_SITE` (required, e.g. `rentwixdv-nezxm.wordpress.com`)
+- `WP_USERNAME` (required)
+- `WP_APP_PASSWORD` (required)
 
 ## Images
 Add any images to `assets/random-images/`. One will be chosen at random per post.
