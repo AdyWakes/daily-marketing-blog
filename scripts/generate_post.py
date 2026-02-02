@@ -1,10 +1,8 @@
-import base64
 import json
 import os
 import random
 import re
 from datetime import datetime, timezone
-from typing import Optional
 
 import requests
 import markdown
@@ -138,34 +136,6 @@ def post_to_blogger(
             f"Blogger post error {response.status_code}: {response.text}"
         )
 
-def post_to_wordpress(
-    site: str,
-    username: str,
-    app_password: str,
-    title: str,
-    html_content: str,
-) -> None:
-    auth = base64.b64encode(f"{username}:{app_password}".encode("utf-8")).decode(
-        "utf-8"
-    )
-    response = requests.post(
-        f"https://public-api.wordpress.com/wp/v2/sites/{site}/posts",
-        headers={
-            "Authorization": f"Basic {auth}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "title": title,
-            "content": html_content,
-            "status": "publish",
-        },
-        timeout=30,
-    )
-    if response.status_code >= 400:
-        raise SystemExit(
-            f"WordPress post error {response.status_code}: {response.text}"
-        )
-
 def main() -> None:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
@@ -191,12 +161,6 @@ def main() -> None:
         [blogger_client_id, blogger_client_secret, blogger_refresh_token, blogger_blog_id]
     ):
         raise SystemExit("Blogger secrets are required.")
-
-    wp_site = os.environ.get("WP_SITE", "").strip()
-    wp_username = os.environ.get("WP_USERNAME", "").strip()
-    wp_app_password = os.environ.get("WP_APP_PASSWORD", "").strip()
-    if not all([wp_site, wp_username, wp_app_password]):
-        raise SystemExit("WordPress secrets are required.")
 
     today = datetime.now(timezone.utc).date()
     date_prefix = today.strftime("%Y-%m-%d")
@@ -327,7 +291,6 @@ def main() -> None:
         blogger_client_id, blogger_client_secret, blogger_refresh_token
     )
     post_to_blogger(access_token, blogger_blog_id, safe_title, html_body)
-    post_to_wordpress(wp_site, wp_username, wp_app_password, safe_title, html_body)
 
     print(f"Created {filepath}")
 
